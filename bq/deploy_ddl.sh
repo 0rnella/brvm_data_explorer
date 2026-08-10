@@ -35,6 +35,7 @@ DDL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/ddl" && pwd)"
 
 DDL_FILES=(
   dim_instruments.sql
+  stg_cours_journaliers_sikafinance.sql
 )
 
 for name in "${DDL_FILES[@]}"; do
