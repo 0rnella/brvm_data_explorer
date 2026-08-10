@@ -14,7 +14,6 @@ CREATE TABLE IF NOT EXISTS `brvm.dim_instruments` (
   type             STRING    NOT NULL,  -- 'action' | 'indice'
   code_pays        STRING,              -- ex. 'CI', 'SN', 'BJ' — pays membre de l'UEMOA ; nul pour les indices
   secteur          STRING,              -- nul pour les indices
-  date_ajout       DATE      NOT NULL,  -- première apparition de cet instrument dans la source
   date_radiation   DATE,                -- nul tant que l'instrument est coté
   vu_le            TIMESTAMP NOT NULL,  -- dernier rafraîchissement où cet instrument a été vu
   maj_le           TIMESTAMP NOT NULL,
