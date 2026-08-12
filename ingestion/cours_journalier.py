@@ -29,10 +29,10 @@ USING `{table_temporaire}` S
 ON T.date = S.date AND T.code = S.code
 WHEN MATCHED THEN
   UPDATE SET ouverture = S.ouverture, haut = S.haut, bas = S.bas, cloture = S.cloture,
-             volume = S.volume, maj_le = CURRENT_TIMESTAMP()
+             volume_titres = S.volume_titres, maj_le = CURRENT_TIMESTAMP()
 WHEN NOT MATCHED THEN
-  INSERT (code, date, ouverture, haut, bas, cloture, volume, maj_le)
-  VALUES (S.code, S.date, S.ouverture, S.haut, S.bas, S.cloture, S.volume, CURRENT_TIMESTAMP())
+  INSERT (code, date, ouverture, haut, bas, cloture, volume_titres, maj_le)
+  VALUES (S.code, S.date, S.ouverture, S.haut, S.bas, S.cloture, S.volume_titres, CURRENT_TIMESTAMP())
 """
 
 
@@ -90,7 +90,7 @@ def recuperer_cours(code_sikafinance, date_debut, date_fin):
             "haut": round(ligne["High"], 6),
             "bas": round(ligne["Low"], 6),
             "cloture": round(ligne["Close"], 6),
-            "volume": ligne["Volume"],
+            "volume_titres": ligne["Volume"],
         })
     return cours
 
@@ -124,7 +124,7 @@ def fusionner_dans_bigquery(client, jeu_de_donnees, lignes):
         bigquery.SchemaField("haut", "NUMERIC"),
         bigquery.SchemaField("bas", "NUMERIC"),
         bigquery.SchemaField("cloture", "NUMERIC"),
-        bigquery.SchemaField("volume", "INTEGER"),
+        bigquery.SchemaField("volume_titres", "INTEGER"),
     ]
     config_chargement = bigquery.LoadJobConfig(schema=schema, write_disposition="WRITE_TRUNCATE")
     client.load_table_from_json(lignes, table_temporaire, job_config=config_chargement).result()
