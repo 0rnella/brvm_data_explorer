@@ -157,7 +157,7 @@ def main():
     client = bigquery.Client(project=os.environ.get("GCP_PROJECT"))
     instruments = lister_instruments_actifs(client, jeu_de_donnees)
 
-    total_lignes = 0
+    lignes = []
     echecs = []
     for position, instrument in enumerate(instruments, start=1):
         code_source = calculer_code_sikafinance(instrument["code"], instrument["type"], instrument["code_pays"])
@@ -170,12 +170,12 @@ def main():
 
         for ligne in cours:
             ligne["code"] = instrument["code"]
-        if cours:
-            fusionner_dans_bigquery(client, jeu_de_donnees, cours)
-        total_lignes += len(cours)
+            lignes.append(ligne)
         print(f"[{position}/{len(instruments)}] {instrument['code']} : {len(cours)} lignes")
 
-    print(f"{total_lignes} lignes de cours synchronisées ({len(instruments)} instruments interrogés, {len(echecs)} échecs).")
+    if lignes:
+        fusionner_dans_bigquery(client, jeu_de_donnees, lignes)
+    print(f"{len(lignes)} lignes de cours synchronisées ({len(instruments)} instruments interrogés, {len(echecs)} échecs).")
 
     if echecs:
         sys.exit(1)
