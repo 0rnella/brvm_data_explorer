@@ -86,6 +86,7 @@ def recuperer_historique_complet(code, date_fin, date_debut=None):
     page = 1
     while True:
         page_lignes = recuperer(code, segment, page=page)
+        print(f"    {code} page {page} : {len(page_lignes)} lignes")
         if not page_lignes:
             break
         lignes.extend(page_lignes)
@@ -157,6 +158,7 @@ def main():
     instruments = lister_instruments_actifs(client, jeu_de_donnees)
 
     lignes = []
+    total_lignes = 0
     echecs = []
     for position, instrument in enumerate(instruments, start=1):
         code = instrument["code"]
@@ -172,13 +174,26 @@ def main():
 
         for ligne in cours:
             ligne["code"] = code
-            lignes.append(ligne)
+
+        # En rattrapage, une action peut prendre plusieurs minutes (pagination
+        # sur tout l'historique) : on fusionne tout de suite plutôt que
+        # d'accumuler en mémoire, pour ne rien perdre si ça s'interrompt.
+        # Coût BigQuery négligeable ici puisque c'est un run ponctuel, pas
+        # le job récurrent.
+        if mode_rattrapage:
+            if cours:
+                fusionner_dans_bigquery(client, jeu_de_donnees, cours)
+            total_lignes += len(cours)
+        else:
+            lignes.extend(cours)
+
         print(f"[{position}/{len(instruments)}] {code} : {len(cours)} lignes")
         time.sleep(0.15)
 
-    if lignes:
+    if not mode_rattrapage and lignes:
         fusionner_dans_bigquery(client, jeu_de_donnees, lignes)
-    print(f"{len(lignes)} lignes synchronisees ({len(instruments)} instruments interrogés, {len(echecs)} échecs).")
+        total_lignes = len(lignes)
+    print(f"{total_lignes} lignes synchronisees ({len(instruments)} instruments interrogés, {len(echecs)} échecs).")
 
     if echecs:
         sys.exit(1)

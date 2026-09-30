@@ -37,6 +37,7 @@ DDL_FILES=(
   dim_instruments.sql
   stg_cours_journaliers_sikafinance.sql
   stg_cours_journaliers_richbourse.sql
+  stg_cours_journaliers_brvm_scrape.sql
 )
 
 for name in "${DDL_FILES[@]}"; do
