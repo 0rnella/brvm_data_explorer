@@ -18,5 +18,5 @@ CREATE TABLE IF NOT EXISTS `brvm.stg_cours_journaliers_richbourse` (
   maj_le                TIMESTAMP NOT NULL,
   PRIMARY KEY (date, code) NOT ENFORCED
 )
-PARTITION BY date
+PARTITION BY DATE_TRUNC(date, YEAR)
 CLUSTER BY code;
