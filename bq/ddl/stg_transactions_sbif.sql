@@ -3,7 +3,7 @@
 -- soir (provisoire) puis le lendemain matin, qui remplace le soir et fait foi.
 -- Chaque collecte remplace les lignes (date_seance, code) des actions lues.
 
-CREATE TABLE IF NOT EXISTS `brvm.stg_transactions_intraday_sbif` (
+CREATE TABLE IF NOT EXISTS `brvm.stg_transactions_sbif` (
   code             STRING    NOT NULL,  -- référence dim_instruments.code
   date_seance      DATE      NOT NULL,
   horodatage       DATETIME  NOT NULL,  -- heure du serveur SBIF (GMT)

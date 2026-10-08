@@ -317,7 +317,7 @@ def main():
     client = bigquery.Client(project=os.environ.get("GCP_PROJECT"))
     codes_lus = [c["code"] for c in controles]
     if transactions:
-        charger(client, f"{jeu_de_donnees}.stg_transactions_intraday_sbif", SCHEMA_TRANSACTIONS, transactions,
+        charger(client, f"{jeu_de_donnees}.stg_transactions_sbif", SCHEMA_TRANSACTIONS, transactions,
                 REQUETE_REMPLACEMENT, [
                     bigquery.ScalarQueryParameter("date_seance", "DATE", date_seance),
                     bigquery.ArrayQueryParameter("codes", "STRING", codes_lus),
