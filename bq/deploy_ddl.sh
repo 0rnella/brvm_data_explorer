@@ -38,6 +38,10 @@ DDL_FILES=(
   stg_cours_journaliers_sikafinance.sql
   stg_cours_journaliers_richbourse.sql
   stg_cours_journaliers_brvm_scrape.sql
+  stg_cours_journaliers_sbif.sql
+  stg_cours_intrajournaliers_sbif.sql
+  stg_transactions_intraday_sbif.sql
+  stg_controles_transactions_sbif.sql
 )
 
 for name in "${DDL_FILES[@]}"; do
