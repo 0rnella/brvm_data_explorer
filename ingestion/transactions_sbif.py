@@ -125,7 +125,7 @@ SCHEMA_COURS = [
 ]
 
 
-def interroger(parametres, type_attendu):
+def interroger_racine(parametres, type_attendu):
     reponse = requests.post(
         URL_SBIF,
         params={**parametres, "seq_cache": int(time.time() * 1000)},
@@ -137,7 +137,17 @@ def interroger(parametres, type_attendu):
     racine = ET.fromstring(reponse.content.decode("utf-8-sig").strip())
     if (racine.findtext("TYPE") or "").strip() != type_attendu:
         raise ValueError(f"réponse de type {racine.findtext('TYPE')!r} au lieu de {type_attendu!r}")
+    return racine
+
+
+def interroger(parametres, type_attendu):
+    racine = interroger_racine(parametres, type_attendu)
     return [(paquet.text or "").replace("\n", "").strip() for paquet in racine.iter("PAC_DET")]
+
+
+def marche_annonce_ferme():
+    champs = (interroger_racine({"mode": "1"}, "MKT_DATA").findtext("PACQ") or "").strip().split("|")
+    return champs[-1].strip().upper() == "F"
 
 
 def nettoyer_nombre(texte, entier=False):
@@ -256,9 +266,9 @@ def main():
     if arguments.collecte == "soir" and date_seance != aujourdhui:
         print(f"SBIF sert la séance du {date_seance} : pas de séance aujourd'hui, rien à collecter.")
         return
-    if arguments.collecte == "lendemain" and date_seance >= aujourdhui:
-        print(f"ALERTE : SBIF sert déjà la séance du {date_seance} ; la relecture de la veille n'est plus possible.",
-              file=sys.stderr)
+    if arguments.collecte == "lendemain" and (date_seance >= aujourdhui or not marche_annonce_ferme()):
+        print(f"ALERTE : SBIF sert la séance du {date_seance} avec un marché non fermé ; la relecture de la veille "
+              f"n'est plus possible.", file=sys.stderr)
         sys.exit(1)
 
     transactions, controles, echecs, incoherentes = [], [], [], []
