@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Déploie tous les jobs d'ingestion (Cloud Run) et leurs déclenchements (Cloud Scheduler).
-# Rejouable : chaque job et chaque déclenchement est créé s'il n'existe pas, mis à jour sinon.
-# L'image doit avoir été construite et poussée au préalable (voir IMAGE).
+# Rejouable : l'image est reconstruite, puis chaque job et chaque déclenchement est créé s'il
+# n'existe pas, mis à jour sinon. La construction tourne sous le compte de service
+# infrastructure@, qui doit avoir le rôle roles/cloudbuild.builds.builder.
 #
 # Usage :
 #   GCP_PROJECT=brvm-explorer ./ingestion/deploy_ingestion.sh
@@ -19,6 +20,7 @@ DATASET="${BQ_DATASET:-brvm}"
 REGION="${REGION:-us-central1}"
 IMAGE="${IMAGE:-us-docker.pkg.dev/${PROJECT}/brvm-ingestion/cours-journalier:latest}"
 SERVICE_ACCOUNT="brvm-ingestion@${PROJECT}.iam.gserviceaccount.com"
+BUILD_SERVICE_ACCOUNT="infrastructure@${PROJECT}.iam.gserviceaccount.com"
 
 # job | script (et arguments, séparés par des virgules) | délai max (s) | variables en plus | déclenchement | horaire (Etc/UTC)
 # Script vide : commande par défaut de l'image (Dockerfile).
@@ -32,6 +34,11 @@ JOBS=(
   # Après le chargement sikafinance de 06:00, avant que SBIF ne passe à la séance suivante (vers 09:00).
   "transactions-sbif-lendemain|ingestion/transactions_sbif.py,--collecte,lendemain|1200||transactions-sbif-lendemain|30 6 * * 2-6"
 )
+
+echo "==> Image $IMAGE"
+gcloud builds submit "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" --project "$PROJECT" --tag "$IMAGE" \
+  --service-account "projects/${PROJECT}/serviceAccounts/${BUILD_SERVICE_ACCOUNT}" \
+  --default-buckets-behavior regional-user-owned-bucket
 
 for definition in "${JOBS[@]}"; do
   IFS='|' read -r job script delai variables declencheur horaire <<< "$definition"
