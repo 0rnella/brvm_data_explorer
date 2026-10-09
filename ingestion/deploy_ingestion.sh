@@ -48,6 +48,8 @@ for definition in "${JOBS[@]}"; do
   gcloud run jobs deploy "$job" --project "$PROJECT" --region "$REGION" --image "$IMAGE" \
     ${script:+--args "$script"} --service-account "$SERVICE_ACCOUNT" --set-env-vars "$env_vars" \
     --task-timeout "$delai" --max-retries 1 --quiet
+  gcloud run jobs add-iam-policy-binding "$job" --project "$PROJECT" --region "$REGION" \
+    --member "serviceAccount:${SERVICE_ACCOUNT}" --role roles/run.invoker --quiet >/dev/null
 
   uri="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT}/jobs/${job}:run"
   if gcloud scheduler jobs describe "$declencheur" --project "$PROJECT" --location "$REGION" >/dev/null 2>&1; then
