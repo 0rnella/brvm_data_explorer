@@ -1,9 +1,5 @@
--- Source : SBIF Trade, tableau des actions (MarketDetails.aspx?mode=3),
--- capturé toutes les 5 minutes pendant la séance : une ligne par action et
--- par capture, carnet à 5 limites compris. Suivi de la séance en direct ; les
--- chiffres de fin de journée qui font foi sont dans stg_cours_journaliers_sbif.
--- Partition au jour (exception) : ~3 300 lignes par séance, chaque MERGE ne
--- relit que la séance en cours au lieu de toute l'année.
+-- Source : SBIF Trade (SGI), tableau des actions (MarketDetails.aspx?mode=3) :
+-- une ligne par action et par capture, carnet à 5 limites compris.
 
 CREATE TABLE IF NOT EXISTS `brvm.stg_cours_intrajournaliers_sbif` (
   code                STRING    NOT NULL,  -- référence dim_instruments.code
@@ -23,7 +19,7 @@ CREATE TABLE IF NOT EXISTS `brvm.stg_cours_intrajournaliers_sbif` (
   variation_pct       NUMERIC,             -- en points de pourcentage
   cumul_echange       INT64,               -- titres échangés depuis l'ouverture
   cours_veille        NUMERIC,
-  cours_min           NUMERIC,             -- tel qu'affiché : inclut d'autres prix que les transactions
+  cours_min           NUMERIC,
   cours_max           NUMERIC,
   ouverture           NUMERIC,
   seuil_bas           NUMERIC,
@@ -34,5 +30,5 @@ CREATE TABLE IF NOT EXISTS `brvm.stg_cours_intrajournaliers_sbif` (
   maj_le              TIMESTAMP NOT NULL,
   PRIMARY KEY (date_seance, capture_le, code) NOT ENFORCED
 )
-PARTITION BY date_seance
+PARTITION BY DATE_TRUNC(date_seance, YEAR)
 CLUSTER BY code;

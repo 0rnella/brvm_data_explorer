@@ -15,13 +15,12 @@ from google.cloud import bigquery
 # connexion). Les transactions de la séance d'une action sont servies par
 # mode=4 ; le tableau des actions (mode=3) sert de référence pour les contrôles.
 #
-# Deux collectes par séance :
-#   soir       le jour même après la clôture, provisoire ;
-#   lendemain  le lendemain matin, avant que SBIF ne passe à la séance
-#              suivante. Le 07/10/2026, SBIF n'a servi le soir que les
-#              transactions postérieures à 10:37, puis la séance complète le
-#              lendemain matin : c'est la collecte du lendemain qui fait foi,
-#              et elle seule alimente stg_cours_journaliers_sbif.
+# SBIF ne sert que la séance en cours, et la recharge pendant la nuit avec
+# d'éventuelles corrections. D'où deux collectes :
+#   soir       séance du jour, après la clôture : provisoire ;
+#   lendemain  séance de la veille, que SBIF sert encore le matin avant de
+#              passer à la séance suivante : fait foi, remplace le soir et
+#              alimente stg_cours_journaliers_sbif.
 URL_SBIF = "https://www.sbiftrade.bf/SBIFTradeServer/MarketDetails.aspx"
 EN_TETE_NAVIGATEUR = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0",
@@ -30,10 +29,9 @@ EN_TETE_NAVIGATEUR = {
 GROUPE_CONTINU = "4"
 PAUSE_ENTRE_ACTIONS_S = 3
 
-# Chaque collecte remplace les transactions de la séance pour les actions
-# lues : le cumul SBIF d'une même transaction change entre le soir et le
-# lendemain, il ne peut donc pas servir de clé. La collecte du soir ne
-# remplace jamais celle du lendemain.
+# Pas d'identifiant de transaction, et le cumul SBIF d'une même transaction
+# change au rechargement : chaque collecte remplace donc les transactions de
+# la séance pour les actions lues. Le soir ne remplace jamais le lendemain.
 REQUETE_REMPLACEMENT = """
 BEGIN TRANSACTION;
 DELETE FROM `{table}`
@@ -59,15 +57,16 @@ WHEN MATCHED THEN
              premiere_transaction = S.premiere_transaction, somme_quantites = S.somme_quantites,
              cumul_echange = S.cumul_echange, controle_cumul = S.controle_cumul,
              controle_somme = S.controle_somme, controle_dernier_cours = S.controle_dernier_cours,
-             controle_date = S.controle_date, controle_doublons = S.controle_doublons, coherente = S.coherente,
-             ecarts = S.ecarts, informations = S.informations, maj_le = CURRENT_TIMESTAMP()
+             controle_haut_bas = S.controle_haut_bas, controle_date = S.controle_date,
+             controle_doublons = S.controle_doublons, coherente = S.coherente, ecarts = S.ecarts,
+             maj_le = CURRENT_TIMESTAMP()
 WHEN NOT MATCHED THEN
   INSERT (code, date_seance, source_collecte, statut, nombre_transactions, premiere_transaction, somme_quantites,
-          cumul_echange, controle_cumul, controle_somme, controle_dernier_cours, controle_date, controle_doublons,
-          coherente, ecarts, informations, maj_le)
+          cumul_echange, controle_cumul, controle_somme, controle_dernier_cours, controle_haut_bas, controle_date,
+          controle_doublons, coherente, ecarts, maj_le)
   VALUES (S.code, S.date_seance, S.source_collecte, S.statut, S.nombre_transactions, S.premiere_transaction,
           S.somme_quantites, S.cumul_echange, S.controle_cumul, S.controle_somme, S.controle_dernier_cours,
-          S.controle_date, S.controle_doublons, S.coherente, S.ecarts, S.informations, CURRENT_TIMESTAMP())
+          S.controle_haut_bas, S.controle_date, S.controle_doublons, S.coherente, S.ecarts, CURRENT_TIMESTAMP())
 """
 
 REQUETE_FUSION_COURS = """
@@ -75,11 +74,12 @@ MERGE `{table}` T
 USING `{table_temporaire}` S
 ON T.date = S.date AND T.code = S.code
 WHEN MATCHED THEN
-  UPDATE SET ouverture = S.ouverture, cloture = S.cloture, volume_titres = S.volume_titres,
-             volume_xof = S.volume_xof, cmp = S.cmp, maj_le = CURRENT_TIMESTAMP()
+  UPDATE SET ouverture = S.ouverture, haut = S.haut, bas = S.bas, cloture = S.cloture,
+             volume_titres = S.volume_titres, volume_xof = S.volume_xof, cmp = S.cmp, maj_le = CURRENT_TIMESTAMP()
 WHEN NOT MATCHED THEN
-  INSERT (code, date, ouverture, cloture, volume_titres, volume_xof, cmp, maj_le)
-  VALUES (S.code, S.date, S.ouverture, S.cloture, S.volume_titres, S.volume_xof, S.cmp, CURRENT_TIMESTAMP())
+  INSERT (code, date, ouverture, haut, bas, cloture, volume_titres, volume_xof, cmp, maj_le)
+  VALUES (S.code, S.date, S.ouverture, S.haut, S.bas, S.cloture, S.volume_titres, S.volume_xof, S.cmp,
+          CURRENT_TIMESTAMP())
 """
 
 SCHEMA_TRANSACTIONS = [
@@ -106,16 +106,18 @@ SCHEMA_CONTROLES = [
     bigquery.SchemaField("controle_cumul", "BOOLEAN"),
     bigquery.SchemaField("controle_somme", "BOOLEAN"),
     bigquery.SchemaField("controle_dernier_cours", "BOOLEAN"),
+    bigquery.SchemaField("controle_haut_bas", "BOOLEAN"),
     bigquery.SchemaField("controle_date", "BOOLEAN"),
     bigquery.SchemaField("controle_doublons", "BOOLEAN"),
     bigquery.SchemaField("coherente", "BOOLEAN"),
     bigquery.SchemaField("ecarts", "STRING"),
-    bigquery.SchemaField("informations", "STRING"),
 ]
 SCHEMA_COURS = [
     bigquery.SchemaField("code", "STRING"),
     bigquery.SchemaField("date", "DATE"),
     bigquery.SchemaField("ouverture", "NUMERIC"),
+    bigquery.SchemaField("haut", "NUMERIC"),
+    bigquery.SchemaField("bas", "NUMERIC"),
     bigquery.SchemaField("cloture", "NUMERIC"),
     bigquery.SchemaField("volume_titres", "INTEGER"),
     bigquery.SchemaField("volume_xof", "NUMERIC"),
@@ -202,7 +204,7 @@ def recuperer_transactions(code, sequence):
 
 
 def controler(transactions, action, date_seance):
-    ecarts = {"cumul": [], "somme": [], "dernier_cours": [], "date": [], "doublons": []}
+    ecarts = {"cumul": [], "somme": [], "dernier_cours": [], "haut_bas": [], "date": [], "doublons": []}
     precedent = 0
     for transaction in transactions:
         if transaction["cumul_sbif"] != precedent + transaction["quantite"]:
@@ -214,22 +216,16 @@ def controler(transactions, action, date_seance):
         ecarts["somme"].append(f"somme {somme} ≠ cumul échangé {action['cumul_echange']}")
     if transactions and transactions[-1]["cours"] != action["dernier"]:
         ecarts["dernier_cours"].append(f"dernière transaction {transactions[-1]['cours']} ≠ dernier {action['dernier']}")
+    if transactions:
+        observes = (max(t["cours"] for t in transactions), min(t["cours"] for t in transactions))
+        if observes != (action["cours_max"], action["cours_min"]):
+            ecarts["haut_bas"].append(f"transactions {observes[0]}/{observes[1]} ≠ tableau "
+                                      f"{action['cours_max']}/{action['cours_min']}")
     autres_jours = sorted({t["horodatage"].date() for t in transactions} - {date_seance})
     ecarts["date"] += [f"transactions du {jour}" for jour in autres_jours]
     occurrences = Counter((t["horodatage"], t["quantite"], t["cours"], t["cumul_sbif"]) for t in transactions)
     ecarts["doublons"] += [f"{h:%H:%M:%S} × {n}" for (h, _, _, _), n in occurrences.items() if n > 1]
     return ecarts
-
-
-def informations_min_max(transactions, action):
-    # Les cours min / max de SBIF incluent d'autres prix que les transactions :
-    # écart signalé, jamais bloquant.
-    if not transactions:
-        return ""
-    observes = (min(t["cours"] for t in transactions), max(t["cours"] for t in transactions))
-    if observes == (action["cours_min"], action["cours_max"]):
-        return ""
-    return f"min/max transactions {observes[0]}/{observes[1]}, tableau {action['cours_min']}/{action['cours_max']}"
 
 
 def charger(client, table, schema, lignes, requete, parametres=None):
@@ -306,11 +302,11 @@ def main():
             "controle_cumul": not ecarts["cumul"],
             "controle_somme": not ecarts["somme"],
             "controle_dernier_cours": not ecarts["dernier_cours"],
+            "controle_haut_bas": not ecarts["haut_bas"],
             "controle_date": not ecarts["date"],
             "controle_doublons": not ecarts["doublons"],
             "coherente": coherente,
             "ecarts": " | ".join(f"{nom} : {e}" for nom, liste in ecarts.items() for e in liste) or None,
-            "informations": informations_min_max(lues, action) or None,
         })
         print(f"[{position}/{len(actions)}] {code} : {len(lues)} transactions{'' if coherente else ' — incohérente'}")
 
@@ -328,7 +324,7 @@ def main():
                 REQUETE_FUSION_CONTROLES)
     if arguments.collecte == "lendemain":
         cours = [{"code": a["code"], "date": date_seance.isoformat(), "ouverture": a["ouverture"],
-                  "cloture": a["dernier"], "volume_titres": a["cumul_echange"], "volume_xof": a["volume_xof"],
+                  "haut": a["cours_max"], "bas": a["cours_min"], "cloture": a["dernier"], "volume_titres": a["cumul_echange"], "volume_xof": a["volume_xof"],
                   "cmp": a["cmp"]} for a in actions]
         charger(client, f"{jeu_de_donnees}.stg_cours_journaliers_sbif", SCHEMA_COURS, cours, REQUETE_FUSION_COURS)
 

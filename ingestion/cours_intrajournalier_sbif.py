@@ -13,7 +13,7 @@ from google.cloud import bigquery
 # API interne de la plateforme de la SGI SBIF Trade, utilisée par sa propre
 # page « Résumé du Marché ». Elle répond sans session : aucune connexion,
 # aucun identifiant, lecture seule. Une photo du tableau des actions
-# (cotation en continu) à chaque passage, pour suivre la séance en direct.
+# (cotation en continu) à chaque passage.
 URL_SBIF = "https://www.sbiftrade.bf/SBIFTradeServer/MarketDetails.aspx"
 EN_TETE_NAVIGATEUR = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0",
@@ -23,12 +23,11 @@ GROUPE_CONTINU = "4"
 NOMBRE_CHAMPS = 52
 ETATS_MARCHE = {"P": "preouverture", "O": "ouvert", "F": "ferme"}
 
-# Séance continue de la BRVM, en GMT. Le planificateur lance toutes les
-# 5 minutes de 9 h à 15 h ; hors de cette fenêtre le script ne fait rien.
+# Séance continue de la BRVM, en GMT.
 DEBUT_SEANCE = heure(9, 45)
 FIN_SEANCE = heure(15, 0)
-# Le 07/10/2026, SBIF a annoncé « fermé » toute la séance et n'a servi les
-# transactions d'avant 10:37 que le lendemain : on alerte si cela se reproduit.
+# SBIF annonçant « fermé » en pleine séance, son flux temps réel est en défaut :
+# les transactions du jour risquent de n'être complètes que le lendemain.
 OUVERTURE_ATTENDUE_AVANT = heure(9, 50)
 
 REQUETE_FUSION = """
